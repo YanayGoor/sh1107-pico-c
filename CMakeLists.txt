@@ -22,8 +22,9 @@ target_link_libraries(sh1107-pico-c INTERFACE
         )
 
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    add_executable(dummy-app test/main.c src/sh1107.c include/font.h src/font.c)
+    add_executable(dummy-app test/main.c src/sh1107.c src/sh1107_spi.c include/font.h src/font.c)
     target_link_libraries(dummy-app pico_stdlib sh1107-pico-c hardware_spi)
     include_directories(dummy-app include/)
     pico_add_extra_outputs(dummy-app)
+    add_compile_definitions(SH1107_SPI=1)
 endif()

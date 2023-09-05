@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <pico/time.h>
 
 #define SH1107_LOW_COLUMN_ADDRESS (0x00)
 #define SH1107_HIGH_COLUMN_ADDRESS (0x10)
@@ -21,126 +22,6 @@
 
 #define HIGH_BYTE(hword) (hword >> 8)
 #define LOW_BYTE(hword) (hword & 0xff)
-
-void sh1107_i2c_write_command(struct sh1107_i2c *sh1107_i2c,
-                              const uint8_t *buff, uint buff_size) {
-  uint8_t prefix = 0x0;
-  i2c_write_blocking(sh1107_i2c->i2c_inst, sh1107_i2c->address, &prefix,
-                     sizeof(prefix), true);
-  i2c_write_blocking(sh1107_i2c->i2c_inst, sh1107_i2c->address, buff, buff_size,
-                     false);
-}
-
-void sh1107_i2c_write_data(struct sh1107_i2c *sh1107_i2c, const uint8_t *buff,
-                           uint buff_size) {
-  uint8_t prefix = 0x40;
-  i2c_write_blocking(sh1107_i2c->i2c_inst, sh1107_i2c->address, &prefix,
-                     sizeof(prefix), true);
-  i2c_write_blocking(sh1107_i2c->i2c_inst, sh1107_i2c->address, buff, buff_size,
-                     false);
-}
-
-void sh1107_spi_init(struct sh1107_spi *sh1107_spi, spi_inst_t *spi_inst,
-                     int sclk, int mosi, int a0, int cs) {
-  sh1107_spi->spi = spi_inst;
-  sh1107_spi->cs = cs;
-  sh1107_spi->a0 = a0;
-
-  spi_init(sh1107_spi->spi, 4000000);
-  gpio_set_function(sclk, GPIO_FUNC_SPI);
-  gpio_set_function(mosi, GPIO_FUNC_SPI);
-
-  gpio_init(sh1107_spi->a0);
-  gpio_set_dir(sh1107_spi->a0, true);
-  gpio_put(sh1107_spi->a0, 0);
-
-  gpio_init(sh1107_spi->cs);
-  gpio_set_dir(sh1107_spi->cs, true);
-  gpio_put(sh1107_spi->cs, 1);
-}
-
-void sh1107_i2c_init(struct sh1107_i2c *sh1107_i2c, i2c_inst_t *i2c_inst,
-                     int sda, int scl, int address) {
-  sh1107_i2c->i2c_inst = i2c_inst;
-  sh1107_i2c->address = address;
-
-  i2c_init(sh1107_i2c->i2c_inst, 400000);
-  gpio_set_function(sda, GPIO_FUNC_SPI);
-  gpio_set_function(scl, GPIO_FUNC_SPI);
-}
-
-static void sh1107_spi_write_command(struct sh1107_spi *sh1107_spi,
-                                     uint8_t *buff, size_t buff_size) {
-  gpio_put(sh1107_spi->cs, 1);
-  gpio_put(sh1107_spi->a0, 0);
-  gpio_put(sh1107_spi->cs, 0);
-  spi_write_blocking(sh1107_spi->spi, buff, buff_size);
-  gpio_put(sh1107_spi->cs, 1);
-}
-
-static void sh1107_spi_write_data(struct sh1107_spi *sh1107_spi, uint8_t *buff,
-                                  size_t buff_size) {
-  gpio_put(sh1107_spi->cs, 1);
-  gpio_put(sh1107_spi->a0, 1);
-  gpio_put(sh1107_spi->cs, 0);
-  spi_write_blocking(sh1107_spi->spi, buff, buff_size);
-  gpio_put(sh1107_spi->cs, 1);
-}
-
-static void sh1107_spi_write_single_command(struct sh1107_spi *sh1107_spi,
-                                            uint8_t command) {
-  sh1107_spi_write_command(sh1107_spi, &command, 1);
-}
-
-static void sh1107_spi_write_double_command(struct sh1107_spi *sh1107_spi,
-                                            uint8_t command, uint8_t value) {
-  uint8_t buff[2] = {command, value};
-  sh1107_spi_write_command(sh1107_spi, (uint8_t *)buff, sizeof(buff));
-}
-
-static void sh1107_i2c_write_single_command(struct sh1107_i2c *sh1107_i2c,
-                                            uint8_t command) {
-  sh1107_i2c_write_command(sh1107_i2c, &command, 1);
-}
-
-static void sh1107_i2c_write_double_command(struct sh1107_i2c *sh1107_i2c,
-                                            uint8_t command, uint8_t value) {
-  uint8_t buff[2] = {command, value};
-  sh1107_i2c_write_command(sh1107_i2c, (uint8_t *)buff, sizeof(buff));
-}
-
-static void sh1107_write_single_command(struct sh1107 *sh1107,
-                                        uint8_t command) {
-  if (sh1107->spi) {
-    sh1107_spi_write_single_command(sh1107->spi, command);
-  } else if (sh1107->i2c) {
-    sh1107_i2c_write_single_command(sh1107->i2c, command);
-  } else {
-    panic("no protocol defined\n");
-  }
-}
-
-static void sh1107_write_double_command(struct sh1107 *sh1107, uint8_t command,
-                                        uint8_t value) {
-  if (sh1107->spi) {
-    sh1107_spi_write_double_command(sh1107->spi, command, value);
-  } else if (sh1107->i2c) {
-    sh1107_i2c_write_double_command(sh1107->i2c, command, value);
-  } else {
-    panic("no protocol defined\n");
-  }
-}
-
-static void sh1107_write_data(struct sh1107 *sh1107, uint8_t *buff,
-                              size_t buff_size) {
-  if (sh1107->spi) {
-    sh1107_spi_write_data(sh1107->spi, buff, buff_size);
-  } else if (sh1107->i2c) {
-    sh1107_i2c_write_data(sh1107->i2c, buff, buff_size);
-  } else {
-    panic("no protocol defined\n");
-  }
-}
 
 static void sh1107_set_pixel(struct sh1107 *sh1107, uint row, uint col,
                              bool value) {
@@ -173,40 +54,40 @@ void sh1107_fill(struct sh1107 *sh1107, uint row, uint col, uint width,
 }
 
 void sh1107_contrast(struct sh1107 *sh1107, uint value) {
-  sh1107_spi_write_double_command(sh1107->spi, SH1107_SET_CONTRAST, value);
+  sh1107->hw->write_double_command(sh1107->hw_data, SH1107_SET_CONTRAST, value);
 }
 
 void sh1107_invert(struct sh1107 *sh1107, uint value) {
-  sh1107_write_single_command(sh1107, SH1107_SET_NORMAL_INVERSE | value);
+  sh1107->hw->write_single_command(sh1107->hw_data, SH1107_SET_NORMAL_INVERSE | value);
 }
 
 static void sh1107_set_column(struct sh1107 *sh1107, uint col) {
   assert(col <= 0xff);
-  sh1107_write_single_command(sh1107, SH1107_LOW_COLUMN_ADDRESS | (col & 0x0f));
-  sh1107_write_single_command(sh1107, SH1107_HIGH_COLUMN_ADDRESS | (col >> 4));
+  sh1107->hw->write_single_command(sh1107->hw_data, SH1107_LOW_COLUMN_ADDRESS | (col & 0x0f));
+  sh1107->hw->write_single_command(sh1107->hw_data, SH1107_HIGH_COLUMN_ADDRESS | (col >> 4));
 }
 
 static void sh1107_set_page(struct sh1107 *sh1107, uint page) {
   assert(page <= 0xf);
-  sh1107_write_single_command(sh1107, SH1107_SET_PAGE_ADDRESS | page);
+  sh1107->hw->write_single_command(sh1107->hw_data, SH1107_SET_PAGE_ADDRESS | page);
 }
 
 void sh1107_poweron(struct sh1107 *sh1107) {
-  sh1107_write_single_command(sh1107, SH1107_SET_DISPLAY_ON);
+  sh1107->hw->write_single_command(sh1107->hw_data, SH1107_SET_DISPLAY_ON);
   sleep_ms(100); // SH1107 recommended delay in power on sequence
 }
 
 void sh1107_poweroff(struct sh1107 *sh1107) {
-  sh1107_write_single_command(sh1107, SH1107_SET_DISPLAY_OFF);
+  sh1107->hw->write_single_command(sh1107->hw_data, SH1107_SET_DISPLAY_OFF);
 }
 
-void sh1107_init(struct sh1107 *sh1107, struct sh1107_spi *sh1107_spi,
-                 struct sh1107_i2c *sh1107_i2c, int res, uint height) {
+void sh1107_init(struct sh1107 *sh1107, struct sh1107_hw *sh1107_hw,
+                 void* hw_data, int res, uint height) {
   assert(sh1107);
-  assert(sh1107_i2c || sh1107_spi);
+  assert(sh1107_hw);
 
-  sh1107->spi = sh1107_spi;
-  sh1107->i2c = sh1107_i2c;
+  sh1107->hw = sh1107_hw;
+  sh1107->hw_data = hw_data;
   sh1107->res = res;
   sh1107->width = SH1107_MAX_WIDTH;
   sh1107->height = height;
@@ -220,17 +101,17 @@ void sh1107_init(struct sh1107 *sh1107, struct sh1107_spi *sh1107_spi,
 
   uint multiplex_ratio = height == SH1107_MAX_HEIGHT ? 0x7f : 0x3f;
   sh1107_fill(sh1107, 0, 0, SH1107_MAX_WIDTH, height, 0);
-  sh1107_write_double_command(sh1107, HIGH_BYTE(SH1107_SET_DC_DC_CONVERTER_SF),
+  sh1107->hw->write_double_command(sh1107->hw_data, HIGH_BYTE(SH1107_SET_DC_DC_CONVERTER_SF),
                               LOW_BYTE(SH1107_SET_DC_DC_CONVERTER_SF));
-  sh1107_write_double_command(sh1107, SH1107_SET_MULTIPLEX_RATIO,
+  sh1107->hw->write_double_command(sh1107->hw_data, SH1107_SET_MULTIPLEX_RATIO,
                               multiplex_ratio);
-  sh1107_write_double_command(sh1107, SH1107_MEM_ADDRESSING_MODE, 0);
+  sh1107->hw->write_double_command(sh1107->hw_data, SH1107_MEM_ADDRESSING_MODE, 0);
   sh1107_set_page(sh1107, 0);
   sh1107_contrast(sh1107, 128);
   sh1107_invert(sh1107, 0);
-  sh1107_write_single_command(sh1107, SH1107_SET_DISPLAY_OFFSET | 0x60);
-  sh1107_write_single_command(sh1107, SH1107_SET_SEGMENT_REMAP | 0);
-  sh1107_write_single_command(sh1107, SH1107_SET_SCAN_DIRECTION | 0);
+  sh1107->hw->write_single_command(sh1107->hw_data, SH1107_SET_DISPLAY_OFFSET | 0x60);
+  sh1107->hw->write_single_command(sh1107->hw_data, SH1107_SET_SEGMENT_REMAP | 0);
+  sh1107->hw->write_single_command(sh1107->hw_data, SH1107_SET_SCAN_DIRECTION | 0);
   sh1107_poweron(sh1107);
 }
 
@@ -242,7 +123,7 @@ void sh1107_show(struct sh1107 *sh1107) {
     uint end = sh1107->changes[page].end;
     sh1107_set_page(sh1107, page);
     sh1107_set_column(sh1107, start);
-    sh1107_write_data(sh1107, sh1107->buff[page] + start, end - start);
+    sh1107->hw->write_data(sh1107->hw_data, sh1107->buff[page] + start, end - start);
   }
 }
 
