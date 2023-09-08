@@ -4,13 +4,15 @@
 #include "pico.h"
 
 typedef struct font_char {
-  uint width;
-  uint height;
-  const char *buff;
-  int offset[2];
+	uint width;
+	uint height;
+	const char *buff;
+	int offset[2];
 } font_char_t;
 
 typedef font_char_t font_t[][128];
+
+enum text_alignment { text_align_left = 0, text_align_center, text_align_right };
 
 font_char_t *font_get_char(font_t *font, uint size, char chr);
 bool font_char_get_pixel(font_char_t *font_char, uint row, uint col);

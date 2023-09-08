@@ -26,7 +26,9 @@ class FontChar:
 FontSize = dict[str, FontChar]
 Font = dict[int, FontSize]
 
-FONTS_DIR = Path("../include/fonts")
+
+FONT_HEADERS_DIR = Path(__file__) / "include" / "fonts"
+FONT_SRCS_DIR = Path(__file__) / "src" / "fonts"
 
 
 def render_char(char: str, *, font: str, size: int) -> FontChar:
@@ -79,12 +81,23 @@ def font_size_to_header(size: int, rendered: FontSize) -> str:
     )
 
 
-def font_to_header(font_name: str, rendered: Font) -> str:
+def font_to_source_file(font_name: str, rendered: Font) -> str:
     font = ",".join(font_size_to_header(size, rendered[size]) for size in rendered)
-    return f"""#include "../font.h"
+    return f"""
+#include "font.h"
 
 font_t font_{font_name} = {{{font}
 }};
+"""
+
+def font_to_header_file(font_name: str) -> str:
+    return f"""
+#ifndef FONT_{font_name.upper()}_H
+#define FONT_{font_name.upper()}_H
+#include "../font.h"
+
+extern font_t font_{font_name};
+#endif // FONT_{font_name.upper()}_H        
 """
 
 
@@ -125,13 +138,16 @@ def validate_fonts(_, __, fonts: tuple[str]):
     multiple=True,
     type=click.Path(exists=True),
     callback=validate_fonts,
-    default=(Path(__file__).parent / FONTS_DIR,),
+    default=(FONT_HEADERS_DIR,),
 )
 def main(size: tuple[int], font: list[Path]):
     for file in font:
+        font_name = Path(file).stem
         font = render_font(str(file), sizes=size)
-        with open(f"include/fonts/{Path(file).stem}.h", mode="w+") as f:
-            f.write(font_to_header(Path(file).stem, font))
+        with open(FONT_SRCS_DIR / f"{font_name}.c", mode="w+") as f:
+            f.write(font_to_source_file(font_name, font))
+        with open(FONT_HEADERS_DIR / f"{font_name}.h", mode="w+") as f:
+            f.write(font_to_header_file(font_name))
 
 
 if __name__ == "__main__":
