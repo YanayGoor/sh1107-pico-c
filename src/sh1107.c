@@ -1,6 +1,7 @@
 #include "../include/sh1107.h"
 
 #include <pico/time.h>
+#include <memory.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -45,6 +46,10 @@ static void sh1107_set_pixel(struct sh1107 *sh1107, uint row, uint col, bool val
 }
 
 void sh1107_fill(struct sh1107 *sh1107, uint row, uint col, uint width, uint height, bool value) {
+	assert(sh1107);
+	assert(row + height <= sh1107->height);
+	assert(col + width <= sh1107->width);
+
 	for (uint i = 0; i < width; i++) {
 		for (uint j = 0; j < height; j++) {
 			sh1107_set_pixel(sh1107, row + j, col + i, value);
@@ -89,6 +94,8 @@ void sh1107_init(struct sh1107 *sh1107, struct sh1107_hw *sh1107_hw, void *hw_da
 	sh1107->res = res;
 	sh1107->width = SH1107_MAX_WIDTH;
 	sh1107->height = height;
+	memset(sh1107->changes, 0, sizeof(sh1107->changes));
+	memset(sh1107->buff, 0, sizeof(sh1107->buff));
 
 	gpio_init(sh1107->res);
 	gpio_set_dir(sh1107->res, true);
@@ -120,6 +127,7 @@ void sh1107_show(struct sh1107 *sh1107) {
 		sh1107_set_page(sh1107, page);
 		sh1107_set_column(sh1107, start);
 		sh1107->hw->write_data(sh1107->hw_data, sh1107->buff[page] + start, end - start);
+		sh1107->changes[page].changed = false;
 	}
 }
 

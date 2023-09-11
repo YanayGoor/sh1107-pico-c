@@ -27,8 +27,8 @@ FontSize = dict[str, FontChar]
 Font = dict[int, FontSize]
 
 
-FONT_HEADERS_DIR = Path(__file__) / "include" / "fonts"
-FONT_SRCS_DIR = Path(__file__) / "src" / "fonts"
+FONT_HEADERS_DIR = Path(__file__).parent.parent / "include" / "fonts"
+FONT_SRCS_DIR = Path(__file__).parent.parent / "src" / "fonts"
 
 
 def render_char(char: str, *, font: str, size: int) -> FontChar:
@@ -130,7 +130,7 @@ def validate_fonts(_, __, fonts: tuple[str]):
     multiple=True,
     type=int,
     callback=validate_size,
-    default=(16, 24, 32, 64, 96),
+    default=(16, 24, 32),
 )
 @click.option(
     "-f",
